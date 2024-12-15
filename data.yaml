@@ -1,6 +1,6 @@
-train: /home/p3/code/yolo/train/images
-val: /home/p3/code/yolo/valid/images
-test: /home/p3/code/yolo/test/images
+train: train/images
+val: valid/images
+test: test/images
 
 nc: 1
 names: ['fish']
