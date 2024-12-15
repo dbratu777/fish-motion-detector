@@ -1,0 +1,17 @@
+train/images/*
+train/labels/*
+
+!train/images/.gitkeep
+!train/labels/.gitkeep
+
+valid/images/*
+valid/labels/*
+
+!valid/images/.gitkeep
+!valid/labels/.gitkeep
+
+test/*
+!test/.gitkeep
+
+*.pt
+!custom.pt
