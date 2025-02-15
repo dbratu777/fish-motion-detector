@@ -7,6 +7,7 @@ import shutil
 import sys
 import time
 
+from collections import deque
 from math import sqrt
 from ultralytics import YOLO
 
@@ -16,8 +17,8 @@ MAX_ALERT_HISTORY = 5           # Track the last 5 files for distance checking
 MAX_HEATMAP_HISTORY = 30        # Keep the most recent 30 data points
 DETECTION_INTERVAL = 30         # Time in seconds to generate heatmap and archive results
 
-alert_history = []
-heatmap_history = []
+alert_history = deque(maxlen=MAX_ALERT_HISTORY)
+heatmap_history = deque(maxlen=MAX_HEATMAP_HISTORY)
 
 model = YOLO("custom.pt")
 
@@ -47,14 +48,10 @@ def parse_label_file(file_path):
     return data
 
 def update_alert_history(new_data):
-    global alert_history
     alert_history.extend(new_data)
-    alert_history = alert_history[-MAX_ALERT_HISTORY:]
 
 def update_heatmap_history(new_data):
-    global heatmap_history
     heatmap_history.extend(new_data)
-    heatmap_history = heatmap_history[-MAX_HEATMAP_HISTORY:]
 
 def generate_distance_alerts(current_data):
     for i, previous_file in enumerate(alert_history):
@@ -79,7 +76,8 @@ def generate_heatmap():
     matplotlib.pyplot.title(f"Fish Heatmap @ {time.time()}")
     matplotlib.pyplot.xlabel("X Coordinate")
     matplotlib.pyplot.ylabel("Y Coordinate")
-    matplotlib.pyplot.show()
+    matplotlib.pyplot.savefig(f"heatmap_{time.time()}.png")
+    matplotlib.pyplot.close()
 
 def process_yolo_predictions(image_path):
     model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
@@ -103,14 +101,25 @@ def process_heatmap_results():
     label_files = glob.glob(os.path.join(results_dir, 'labels', '*.txt'))
     if not label_files:
         return
+    
+    label_files.sort(key=os.path.getmtime, reverse=True)
+    latest_label_files = label_files[:30]
 
-    for label_file in label_files:
+    for label_file in latest_label_files:
         current_data = parse_label_file(label_file)
         update_heatmap_history(current_data)
 
     generate_heatmap()
 
+    for label_file in label_files:
+        if os.path.isfile(label_file):
+            try:
+                os.remove(label_file)
+            except Exception as e:
+                print(f"ERROR: could not delete {label_file} - {e}")
+
 def yolo_processing():
+    last_processed_time = time.time()
     while True:
         current_time = time.time()
 
