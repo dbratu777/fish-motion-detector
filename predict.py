@@ -54,16 +54,24 @@ def update_heatmap_history(new_data):
     heatmap_history.extend(new_data)
 
 def generate_distance_alerts(current_data):
-    for i, previous_file in enumerate(alert_history):
-        if i >= MAX_ALERT_HISTORY:
-            break
-        
-        for prev_point in previous_file:
-            for curr_point in current_data:
+    for curr_point in current_data:
+        match_curr_point = True
+        for i, previous_file in enumerate(alert_history):
+            if i >= MAX_ALERT_HISTORY:
+                break
+
+            match_curr_file = False
+            for prev_point in previous_file:
                 dist = calculate_distance(prev_point[:2], curr_point[:2])
                 if dist <= DIST_THRESHOLD:
-                    print(f"Proximity Alert: Points {prev_point[:2]} and {curr_point[:2]} are within {DIST_THRESHOLD} units.")
-    return
+                    match_curr_file = True
+                    break
+            if not match_curr_file:
+                match_curr_point = False
+                break
+
+        if match_curr_point:
+            print(f"TODO: Generate Proximity Alert for Point {curr_point[:2]}")
 
 def generate_heatmap():
     if len(heatmap_history) == 0:
@@ -94,8 +102,8 @@ def process_alert_results():
     
     latest_label_file = max(label_files, key=os.path.getmtime)
     current_data = parse_label_file(latest_label_file)
-    update_alert_history(current_data)
     generate_distance_alerts(current_data)
+    update_alert_history(current_data)
 
 def process_heatmap_results():
     label_files = glob.glob(os.path.join(results_dir, 'labels', '*.txt'))
@@ -139,7 +147,6 @@ def main():
     if os.path.exists(results_dir):
         shutil.rmtree(results_dir)
     yolo_processing()
-
 
 
 if __name__ == "__main__":
