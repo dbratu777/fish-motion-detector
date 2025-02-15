@@ -13,5 +13,6 @@ valid/labels/*
 test/*
 !test/.gitkeep
 
+runs/*
+
 *.pt
-!custom.pt
