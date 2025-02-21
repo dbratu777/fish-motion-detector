@@ -76,10 +76,10 @@ def parse_label_file(file_path):
     return data
 
 def update_alert_history(new_data):
-    alert_history.extend(new_data)
+    alert_history.append(new_data)
 
 def update_heatmap_history(new_data):
-    heatmap_history.extend(new_data)
+    heatmap_history.append(new_data)
 
 def generate_distance_alerts(current_data):
     for curr_point in current_data:
@@ -137,7 +137,8 @@ def process_alert_results():
     
     latest_label_file = max(label_files, key=os.path.getmtime)
     current_data = parse_label_file(latest_label_file)
-    generate_distance_alerts(current_data)
+    if len(alert_history) >= MAX_ALERT_HISTORY:
+        generate_distance_alerts(current_data)
     update_alert_history(current_data)
 
 def process_heatmap_results():
