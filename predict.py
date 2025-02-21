@@ -1,14 +1,19 @@
 
+import datetime
 import glob
+import json
 import matplotlib.pyplot
 import os
-import signal
 import shutil
+import signal
+import subprocess 
 import sys
 import time
 
 from collections import deque
 from math import sqrt
+from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Boolean
+from sqlalchemy.ext.declarative import declarative_base
 from ultralytics import YOLO
 
 CONFIDENCE_THRESHOLD = 0.50     # Prediction confidence threshold to accept results
@@ -24,6 +29,29 @@ model = YOLO("custom.pt")
 
 process_dir = 'test'
 results_dir = 'runs/detect/predict/'
+
+Base = declarative_base()
+
+# ALERT INFO: 
+# Types: 0 = Temp, 1 = pH, 2 = ORP, 3 = Fish Health
+class Alert(Base):
+    __tablename__ = 'alerts'
+    id = Column(Integer, primary_key=True)
+    type = Column(Integer, nullable=False)
+    title = Column(String(100), nullable=False)
+    description = Column(String(200), nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    read = Column(Boolean, default=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'type': self.type,
+            'title': self.title,
+            'description': self.description,
+            'timestamp': self.timestamp.isoformat(),
+            'read': self.read
+        }
 
 def signal_handler(sig, frame):
     if os.path.exists(results_dir):
@@ -71,7 +99,11 @@ def generate_distance_alerts(current_data):
                 break
 
         if match_curr_point:
-            print(f"TODO: Generate Proximity Alert for Point {curr_point[:2]}")
+            alert = Alert(type=3, title="Fish Health", description=f"The fish found at point '({curr_point[:2]})' is acting abnormally.")
+            alert_dict = alert.to_dict()
+            alert_json = json.dumps(alert_dict)
+            subprocess.run(["python", "../fish-websockets/dp_client.py", f"alert {alert_json}"])
+
 
 def generate_heatmap():
     if len(heatmap_history) == 0:
@@ -80,12 +112,15 @@ def generate_heatmap():
     x_coords = [item[0] for item in heatmap_history]
     y_coords = [item[1] for item in heatmap_history]
 
+    heatmap_name = f"heatmap_{time.time()}.png"
     matplotlib.pyplot.scatter(x_coords, y_coords, c='blue', marker='o')
     matplotlib.pyplot.title(f"Fish Heatmap @ {time.time()}")
     matplotlib.pyplot.xlabel("X Coordinate")
     matplotlib.pyplot.ylabel("Y Coordinate")
-    matplotlib.pyplot.savefig(f"heatmap_{time.time()}.png")
+    matplotlib.pyplot.savefig(heatmap_name)
     matplotlib.pyplot.close()
+
+    subprocess.run(["python", "../fish-websockets/dp_client.py", f"heatmap {os.getcwd()}/{heatmap_name}"])
 
 def process_yolo_predictions(image_path):
     model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
