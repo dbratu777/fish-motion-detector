@@ -1,18 +1,21 @@
-train/images/*
-train/labels/*
+datasets/train/images/*
+datasets/train/labels/*
 
-!train/images/.gitkeep
-!train/labels/.gitkeep
+!datasets/train/images/.gitkeep
+!datasets/train/labels/.gitkeep
 
-valid/images/*
-valid/labels/*
+datasets/valid/images/*
+datasets/valid/labels/*
 
-!valid/images/.gitkeep
-!valid/labels/.gitkeep
+!datasets/valid/images/.gitkeep
+!datasets/valid/labels/.gitkeep
 
-test/*
-!test/.gitkeep
+datasets/test/*
+!datasets/test/.gitkeep
 
 runs/*
 
+**labels.cache
 *.pt
+*.jpg
+*.png

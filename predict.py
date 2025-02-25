@@ -27,7 +27,7 @@ heatmap_history = deque(maxlen=MAX_HEATMAP_HISTORY)
 
 model = YOLO("custom.pt")
 
-process_dir = 'test'
+process_dir = 'datasets/test'
 results_dir = 'runs/detect/predict/'
 
 Base = declarative_base()
@@ -56,7 +56,7 @@ class Alert(Base):
 def signal_handler(sig, frame):
     if os.path.exists(results_dir):
         shutil.rmtree(results_dir)
-    print("\nExitting...")
+    print("\nExiting...")
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -99,18 +99,23 @@ def generate_distance_alerts(current_data):
                 break
 
         if match_curr_point:
-            alert = Alert(type=3, title="Fish Health", description=f"The fish found at point '({curr_point[:2]})' is acting abnormally.")
+            alert = Alert(type=3, 
+                          title="Fish Health", 
+                          description=f"The fish found at point '({curr_point[:2]})' is acting abnormally.", 
+                          timestamp=datetime.datetime.now(datetime.timezone.utc))
             alert_dict = alert.to_dict()
             alert_json = json.dumps(alert_dict)
-            subprocess.run(["python", "../fish-websockets/dp_client.py", f"alert {alert_json}"])
+
+            dp_client_path = os.path.join('..', 'fish-websockets', 'dp_client.py')
+            subprocess.run(["python", dp_client_path, "alert", alert_json])
 
 
 def generate_heatmap():
     if len(heatmap_history) == 0:
         return
     
-    x_coords = [item[0] for item in heatmap_history]
-    y_coords = [item[1] for item in heatmap_history]
+    x_coords = [item[0] for file in heatmap_history for item in file]
+    y_coords = [item[1] for file in heatmap_history for item in file]
 
     heatmap_name = f"heatmap_{time.time()}.png"
     matplotlib.pyplot.scatter(x_coords, y_coords, c='blue', marker='o')
@@ -120,7 +125,14 @@ def generate_heatmap():
     matplotlib.pyplot.savefig(heatmap_name)
     matplotlib.pyplot.close()
 
-    subprocess.run(["python", "../fish-websockets/dp_client.py", f"heatmap {os.getcwd()}/{heatmap_name}"])
+    heatmap_path = os.path.join(os.getcwd(), heatmap_name)
+    dp_client_path = os.path.join('..', 'fish-websockets', 'dp_client.py')
+    subprocess.run(["python", dp_client_path, "heatmap", heatmap_path])
+
+    try:
+        os.remove(heatmap_path)
+    except Exception as e:
+        print(f"ERROR: could not delete {heatmap_path} - {e}")
 
 def process_yolo_predictions(image_path):
     model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
