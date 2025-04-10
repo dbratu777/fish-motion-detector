@@ -7,7 +7,7 @@ import os
 import seaborn
 import shutil
 import signal
-import subprocess 
+import subprocess
 import sys
 import time
 
@@ -33,7 +33,8 @@ results_dir = 'runs/detect/predict/'
 
 Base = declarative_base()
 
-# ALERT INFO: 
+
+# ALERT INFO:
 # Types: 0 = Temp, 1 = pH, 2 = ORP, 3 = Fish Health
 class Alert(Base):
     __tablename__ = 'alerts'
@@ -41,7 +42,8 @@ class Alert(Base):
     type = Column(Integer, nullable=False)
     title = Column(String(100), nullable=False)
     description = Column(String(200), nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    timestamp = Column(
+        DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     read = Column(Boolean, default=False)
 
     def to_dict(self):
@@ -54,16 +56,20 @@ class Alert(Base):
             'read': self.read
         }
 
+
 def signal_handler(sig, frame):
     if os.path.exists(results_dir):
         shutil.rmtree(results_dir)
     print("\nExiting...")
     sys.exit(0)
 
+
 signal.signal(signal.SIGINT, signal_handler)
+
 
 def calculate_distance(p1, p2):
     return sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
 
 def parse_label_file(file_path):
     data = []
@@ -75,11 +81,14 @@ def parse_label_file(file_path):
                 data.append([float(parts[1]), float(parts[2])])
     return data
 
+
 def update_alert_history(new_data):
     alert_history.append(new_data)
 
+
 def update_heatmap_history(new_data):
     heatmap_history.append(new_data)
+
 
 def generate_distance_alerts(current_data):
     for curr_point in current_data:
@@ -99,21 +108,22 @@ def generate_distance_alerts(current_data):
                 break
 
         if match_curr_point:
-            alert = Alert(type=3, 
-                          title="Fish Health", 
-                          description=f"The fish found at point '({curr_point[:2]})' is acting abnormally.", 
+            alert = Alert(type=3,
+                          title="Fish Health",
+                          description=f"The fish found at point '({curr_point[:2]})' is acting abnormally.",
                           timestamp=datetime.datetime.now(datetime.timezone.utc))
             alert_dict = alert.to_dict()
             alert_json = json.dumps(alert_dict)
 
-            dp_client_path = os.path.join('..', 'fish-websockets', 'dp_client.py')
+            dp_client_path = os.path.join(
+                '..', 'fish-websockets', 'dp_client.py')
             subprocess.run(["python", dp_client_path, "alert", alert_json])
 
 
 def generate_heatmap():
     if len(heatmap_history) == 0:
         return
-    
+
     x_coords = [item[0] for file in heatmap_history for item in file]
     y_coords = [item[1] for file in heatmap_history for item in file]
 
@@ -134,16 +144,18 @@ def generate_heatmap():
 
     heatmap_path = os.path.join(os.getcwd(), heatmap_name)
     dp_client_path = os.path.join('..', 'fish-websockets', 'dp_client.py')
-    subprocess.run(["python", dp_client_path, "heatmap", heatmap_path])
+    subprocess.run(["python", dp_client_path, "heatmap", heatmap_path], check=False)
 
     try:
         os.remove(heatmap_path)
     except Exception as e:
         print(f"ERROR: could not delete {heatmap_path} - {e}")
 
+
 def process_yolo_predictions(image_path):
     try:
-        model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
+        model.predict(source=image_path, save=False,
+                      save_txt=True, save_conf=True)
     except Exception as e:
         print(f"WARNING: could not process {image_path} - {e}")
 
@@ -152,22 +164,24 @@ def process_yolo_predictions(image_path):
     except Exception as e:
         print(f"WARNING: could not delete {image_path} - {e}")
 
+
 def process_alert_results():
     label_files = glob.glob(os.path.join(results_dir, 'labels', '*.txt'))
     if not label_files:
         return
-    
+
     latest_label_file = max(label_files, key=os.path.getmtime)
     current_data = parse_label_file(latest_label_file)
     if len(alert_history) >= MAX_ALERT_HISTORY:
         generate_distance_alerts(current_data)
     update_alert_history(current_data)
 
+
 def process_heatmap_results():
     label_files = glob.glob(os.path.join(results_dir, 'labels', '*.txt'))
     if not label_files:
         return
-    
+
     label_files.sort(key=os.path.getmtime, reverse=True)
     latest_label_files = label_files[:30]
 
@@ -184,12 +198,14 @@ def process_heatmap_results():
             except Exception as e:
                 print(f"ERROR: could not delete {label_file} - {e}")
 
+
 def yolo_processing():
     last_processed_time = time.time()
     while True:
         current_time = time.time()
 
-        images = [f for f in os.listdir(process_dir) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif'))]
+        images = [f for f in os.listdir(process_dir) if f.lower().endswith(
+            ('jpg', 'jpeg', 'png', 'bmp', 'gif'))]
         if images:
             image_path = os.path.join(process_dir, images[0])
             while True:
@@ -207,6 +223,7 @@ def yolo_processing():
                 last_processed_time = current_time
 
         time.sleep(0.1)
+
 
 def main():
     if os.path.exists(results_dir):
