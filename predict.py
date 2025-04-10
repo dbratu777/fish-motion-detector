@@ -13,8 +13,8 @@ import time
 
 from collections import deque
 from math import sqrt
-from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy.orm import declarative_base
 from ultralytics import YOLO
 
 CONFIDENCE_THRESHOLD = 0.60     # Prediction confidence threshold to accept results
