@@ -4,6 +4,7 @@ import glob
 import json
 import matplotlib.pyplot
 import os
+import seaborn
 import shutil
 import signal
 import subprocess 
@@ -16,11 +17,11 @@ from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, 
 from sqlalchemy.ext.declarative import declarative_base
 from ultralytics import YOLO
 
-CONFIDENCE_THRESHOLD = 0.50     # Prediction confidence threshold to accept results
+CONFIDENCE_THRESHOLD = 0.60     # Prediction confidence threshold to accept results
 DIST_THRESHOLD = 0.05           # Distance threshold for checking proximity
-MAX_ALERT_HISTORY = 5           # Track the last 5 files for distance checking
-MAX_HEATMAP_HISTORY = 30        # Keep the most recent 30 data points
-DETECTION_INTERVAL = 30         # Time in seconds to generate heatmap and archive results
+MAX_ALERT_HISTORY = 60          # Track the last 60 files for distance checking
+MAX_HEATMAP_HISTORY = 120       # Keep the most recent 120 data points
+DETECTION_INTERVAL = 60         # Time in seconds to generate heatmap and archive results
 
 alert_history = deque(maxlen=MAX_ALERT_HISTORY)
 heatmap_history = deque(maxlen=MAX_HEATMAP_HISTORY)
@@ -71,8 +72,7 @@ def parse_label_file(file_path):
             # Assuming each line is of format: class_id x_center y_center width height confidence
             parts = line.split()
             if len(parts) >= 6 and float(parts[5]) >= CONFIDENCE_THRESHOLD:
-                # ignore class_id
-                data.append([float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])])
+                data.append([float(parts[1]), float(parts[2])])
     return data
 
 def update_alert_history(new_data):
@@ -118,7 +118,14 @@ def generate_heatmap():
     y_coords = [item[1] for file in heatmap_history for item in file]
 
     heatmap_name = f"heatmap_{time.time()}.png"
-    matplotlib.pyplot.scatter(x_coords, y_coords, c='blue', marker='o')
+    seaborn.kdeplot(
+        x=x_coords,
+        y=y_coords,
+        cmap="mako",
+        fill=True,
+        thresh=0.05,
+        bw_adjust=0.25
+    )
     matplotlib.pyplot.title(f"Fish Heatmap @ {time.time()}")
     matplotlib.pyplot.xlabel("X Coordinate")
     matplotlib.pyplot.ylabel("Y Coordinate")
@@ -135,12 +142,15 @@ def generate_heatmap():
         print(f"ERROR: could not delete {heatmap_path} - {e}")
 
 def process_yolo_predictions(image_path):
-    model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
+    try:
+        model.predict(source=image_path, save=False, save_txt=True, save_conf=True)
+    except Exception as e:
+        print(f"WARNING: could not process {image_path} - {e}")
 
     try:
         os.remove(image_path)
     except Exception as e:
-        print(f"ERROR: could not delete {image_path} - {e}")
+        print(f"WARNING: could not delete {image_path} - {e}")
 
 def process_alert_results():
     label_files = glob.glob(os.path.join(results_dir, 'labels', '*.txt'))
@@ -182,6 +192,13 @@ def yolo_processing():
         images = [f for f in os.listdir(process_dir) if f.lower().endswith(('jpg', 'jpeg', 'png', 'bmp', 'gif'))]
         if images:
             image_path = os.path.join(process_dir, images[0])
+            while True:
+                last_modified = os.path.getmtime(image_path)
+                age = time.time() - last_modified
+                if age > 1:
+                    break
+                time.sleep(0.1)
+
             process_yolo_predictions(image_path)
             process_alert_results()
 
@@ -189,7 +206,7 @@ def yolo_processing():
                 process_heatmap_results()
                 last_processed_time = current_time
 
-        time.sleep(1)
+        time.sleep(0.1)
 
 def main():
     if os.path.exists(results_dir):
