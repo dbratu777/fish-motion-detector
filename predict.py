@@ -60,7 +60,7 @@ class Alert(Base):
 def signal_handler(sig, frame):
     if os.path.exists(results_dir):
         shutil.rmtree(results_dir)
-    print("\nExiting...")
+    print("[FISH-FRIEND::predict::LOG]: exiting...")
     sys.exit(0)
 
 
@@ -117,7 +117,8 @@ def generate_distance_alerts(current_data):
 
             dp_client_path = os.path.join(
                 '..', 'fish-websockets', 'dp_client.py')
-            subprocess.run(["python", dp_client_path, "alert", alert_json])
+            subprocess.run(["python", dp_client_path,
+                           "alert", alert_json], check=False)
 
 
 def generate_heatmap():
@@ -144,12 +145,13 @@ def generate_heatmap():
 
     heatmap_path = os.path.join(os.getcwd(), heatmap_name)
     dp_client_path = os.path.join('..', 'fish-websockets', 'dp_client.py')
-    subprocess.run(["python", dp_client_path, "heatmap", heatmap_path], check=False)
+    subprocess.run(["python", dp_client_path, "heatmap",
+                   heatmap_path], check=False)
 
     try:
         os.remove(heatmap_path)
     except Exception as e:
-        print(f"ERROR: could not delete {heatmap_path} - {e}")
+        print(f"[FISH-FRIEND::predict::WARN]:: could not delete {heatmap_path} - {e}.")
 
 
 def process_yolo_predictions(image_path):
@@ -157,12 +159,12 @@ def process_yolo_predictions(image_path):
         model.predict(source=image_path, save=False,
                       save_txt=True, save_conf=True)
     except Exception as e:
-        print(f"WARNING: could not process {image_path} - {e}")
+        print(f"[FISH-FRIEND::predict::WARN]: could not process {image_path} - {e}.")
 
     try:
         os.remove(image_path)
     except Exception as e:
-        print(f"WARNING: could not delete {image_path} - {e}")
+        print(f"[FISH-FRIEND::predict::WARN]: could not delete {image_path} - {e}.")
 
 
 def process_alert_results():
@@ -196,7 +198,7 @@ def process_heatmap_results():
             try:
                 os.remove(label_file)
             except Exception as e:
-                print(f"ERROR: could not delete {label_file} - {e}")
+                print(f"[FISH-FRIEND::predict::WARN]: could not delete {label_file} - {e}.")
 
 
 def yolo_processing():
